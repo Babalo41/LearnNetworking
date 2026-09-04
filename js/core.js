@@ -11,6 +11,11 @@
     items: {},        // itemKey -> srs record
     scenarios: {},    // scenarioId -> {best, runs, lastRun}
     seen: {},         // cardId -> timestamp of last read
+    bookmarks: {},     // cardId -> true, user-starred cards
+    settings: {         // user preferences, persisted like everything else
+      freeNav: false,     // when true, every card is clickable regardless of prereqs
+      theme: "dark"        // "dark" | "light"
+    },
     log: { answered: 0, correct: 0, days: {} }
   });
 
@@ -21,6 +26,8 @@
     data = blank();
   }
   for (const k of Object.keys(blank())) if (data[k] === undefined) data[k] = blank()[k];
+  // shallow-merge nested defaults too, so an older save (missing a newer setting) still gets it
+  for (const k of Object.keys(blank().settings)) if (data.settings[k] === undefined) data.settings[k] = blank().settings[k];
 
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(data)); }
@@ -77,8 +84,17 @@
   cards.forEach(c => (c.items || []).forEach((it, i) =>
     allItems.push({ item: it, card: c, key: itemKey(c.id, i) })));
 
-  /** A card is unlocked when every prerequisite has been read. */
+  /** A card is unlocked when every prerequisite has been read —
+      or unconditionally, if the user has switched on free navigation. */
   function unlocked(card) {
+    if (data.settings && data.settings.freeNav) return true;
+    return (card.prereqs || []).every(p => data.seen[p]);
+  }
+
+  /** True only when a card's real prerequisites are met — ignores the
+      free-nav override. Used by the UI to still flag "read this first"
+      even when free navigation lets you click through anyway. */
+  function prereqsMet(card) {
     return (card.prereqs || []).every(p => data.seen[p]);
   }
 
@@ -128,5 +144,5 @@
     reset() { data = blank(); save(); },
     load(obj) { data = Object.assign(blank(), obj); save(); }
   };
-  LN.idx = { cards, cardById, allItems, itemKey, unlocked, mastery, trackMastery, dueItems, streak };
+  LN.idx = { cards, cardById, allItems, itemKey, unlocked, prereqsMet, mastery, trackMastery, dueItems, streak };
 })();

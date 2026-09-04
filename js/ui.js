@@ -29,11 +29,24 @@
       const list = h("div", "cardlist");
       t.cards.forEach(c => {
         const open = LN.idx.unlocked(c);
-        const tile = h("div", "cardtile" + (open ? "" : " locked"));
-        tile.innerHTML = `<div class="t">${esc(c.title)}</div>
+        const metPrereqs = LN.idx.prereqsMet(c);
+        const earlyAccess = open && !metPrereqs; // free-nav let us in ahead of the guided order
+        const starred = !!LN.db.data.bookmarks[c.id];
+        const tile = h("div", "cardtile" + (open ? "" : " locked") + (earlyAccess ? " pending" : ""));
+        const star = h("span", "star" + (starred ? " on" : ""), starred ? "★" : "☆");
+        star.title = starred ? "Remove bookmark" : "Bookmark this card";
+        star.onclick = e => {
+          e.stopPropagation();
+          if (LN.db.data.bookmarks[c.id]) delete LN.db.data.bookmarks[c.id];
+          else LN.db.data.bookmarks[c.id] = true;
+          LN.db.save();
+          learn();
+        };
+        tile.innerHTML = `<div class="t">${esc(c.title)}${earlyAccess ? ' <span class="pendingtag">unlocked early</span>' : ""}</div>
           <div class="w">${open ? c.why.replace(/<[^>]+>/g, "").slice(0, 110) + "…"
             : "Locked — read: " + c.prereqs.map(p => LN.idx.cardById[p] ? LN.idx.cardById[p].title : p).join(", ")}</div>
           <div class="bar"><i style="width:${Math.round(LN.idx.mastery(c) * 100)}%"></i></div>`;
+        tile.appendChild(star);
         if (open) tile.onclick = () => concept(c.id);
         list.appendChild(tile);
       });
@@ -408,6 +421,24 @@
       g.appendChild(s);
     });
     w.appendChild(g);
+
+    const settingsBox = h("div", "panel settings-panel");
+    settingsBox.appendChild(h("h4", null, "Settings"));
+    const freeNavRow = h("label", "switchrow");
+    const freeNavCb = h("input");
+    freeNavCb.type = "checkbox";
+    freeNavCb.checked = !!d.settings.freeNav;
+    freeNavCb.onchange = () => {
+      d.settings.freeNav = freeNavCb.checked;
+      LN.db.save();
+      progress();
+    };
+    freeNavRow.appendChild(freeNavCb);
+    const freeNavTxt = h("div");
+    freeNavTxt.innerHTML = "<b>Free navigation</b><br><span class='sub' style='margin:0'>Unlock every card immediately — jump to whatever topic you want instead of following the guided prerequisite order. Cards you haven't earned the guided way stay marked \"unlocked early\".</span>";
+    freeNavRow.appendChild(freeNavTxt);
+    settingsBox.appendChild(freeNavRow);
+    w.appendChild(settingsBox);
 
     LN.tracks.forEach(t => {
       w.appendChild(h("h2", null, t.title));

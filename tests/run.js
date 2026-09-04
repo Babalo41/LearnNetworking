@@ -161,6 +161,37 @@ section("LN.idx — content indexing and unlock logic", () => {
 });
 
 /* ============================================================
+   2b. FREE NAVIGATION + BOOKMARKS settings
+   ============================================================ */
+section("free navigation toggle and bookmarks", () => {
+  LN.db.reset();
+  const locked = LN.idx.cardById["t1-same-subnet"]; // has an unmet prereq (t1-ip)
+
+  assert(LN.idx.unlocked(locked) === false, "locked card stays locked with freeNav off and prereq unread");
+  assert(LN.idx.prereqsMet(locked) === false, "prereqsMet correctly reports the prereq is unmet");
+
+  LN.db.data.settings.freeNav = true;
+  assert(LN.idx.unlocked(locked) === true, "turning freeNav on makes every card unlocked()");
+  assert(LN.idx.prereqsMet(locked) === false, "prereqsMet still reports the real prereq state even with freeNav on (drives the 'unlocked early' badge)");
+
+  LN.db.data.settings.freeNav = false;
+  assert(LN.idx.unlocked(locked) === false, "turning freeNav back off restores normal locking");
+
+  // settings survive a save/reload round-trip through the localStorage stub
+  LN.db.data.settings.freeNav = true;
+  LN.db.save();
+  LN.db.load(JSON.parse(localStorage.getItem("learnnetworking.v1")));
+  assert(LN.db.data.settings.freeNav === true, "freeNav setting survives a save + load round-trip");
+
+  // bookmarks
+  LN.db.reset();
+  eq(Object.keys(LN.db.data.bookmarks).length, 0, "bookmarks start empty on a fresh profile");
+  LN.db.data.bookmarks["t1-ip"] = true;
+  LN.db.save();
+  assert(LN.db.data.bookmarks["t1-ip"] === true, "a bookmark persists after save");
+});
+
+/* ============================================================
    3. SM-2 SPACED REPETITION (LN.db.review)
    ============================================================ */
 section("SM-2 spaced repetition engine", () => {
