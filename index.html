@@ -21,10 +21,17 @@
     <button class="nav" data-mode="lab">Lab<small>simulated network</small></button>
     <button class="nav" data-mode="incident">Incident<small>capstone scenarios</small></button>
     <button class="nav" data-mode="progress">Progress<small>what you know</small></button>
+    <button class="nav" data-mode="changelog">Changelog<small>what's new</small></button>
     <div class="due-badge" id="due-badge"></div>
-    <div class="foot">
-      <button id="export-btn" class="mini">Export progress</button>
-      <button id="import-btn" class="mini">Import</button>
+    <div class="foot" style="flex-direction:column;gap:6px">
+      <div style="display:flex;gap:6px">
+        <button id="theme-btn" class="mini" title="Toggle light/dark theme">☀</button>
+        <button id="help-btn" class="mini" title="Keyboard shortcuts (?)">?</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button id="export-btn" class="mini">Export</button>
+        <button id="import-btn" class="mini">Import</button>
+      </div>
       <input type="file" id="import-file" accept=".json" hidden>
     </div>
   </nav>
@@ -42,6 +49,7 @@
 
 <!-- engine -->
 <script src="js/core.js"></script>
+<script src="js/features.js"></script>
 <script src="js/net.js"></script>
 <script src="js/shell.js"></script>
 <script src="js/drills.js"></script>

@@ -138,11 +138,56 @@
     return n;
   }
 
+  /* ---------------- reset undo (one-slot backup) ---------------- */
+  const BACKUP_KEY = KEY + ".backup";
+  function backupNow() {
+    try { localStorage.setItem(BACKUP_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  function hasBackup() {
+    try { return !!localStorage.getItem(BACKUP_KEY); } catch (e) { return false; }
+  }
+  function restoreBackup() {
+    let raw;
+    try { raw = localStorage.getItem(BACKUP_KEY); } catch (e) { raw = null; }
+    if (!raw) return false;
+    try {
+      data = JSON.parse(raw);
+      for (const k of Object.keys(blank())) if (data[k] === undefined) data[k] = blank()[k];
+      save();
+      try { localStorage.removeItem(BACKUP_KEY); } catch (e) {}
+      return true;
+    } catch (e) { return false; }
+  }
+
+  /* ---------------- import validation ----------------
+     Checked BEFORE overwriting live data, so the UI can show a summary and
+     let the user back out instead of silently clobbering their progress. */
+  function validateImport(obj) {
+    const errors = [];
+    if (!obj || typeof obj !== "object") errors.push("not a JSON object");
+    else {
+      if (obj.items !== undefined && typeof obj.items !== "object") errors.push("'items' is not an object");
+      if (obj.seen !== undefined && typeof obj.seen !== "object") errors.push("'seen' is not an object");
+      if (obj.scenarios !== undefined && typeof obj.scenarios !== "object") errors.push("'scenarios' is not an object");
+      if (obj.log !== undefined && typeof obj.log !== "object") errors.push("'log' is not an object");
+    }
+    if (errors.length) return { ok: false, errors, summary: null };
+    const seenCount = obj.seen ? Object.keys(obj.seen).length : 0;
+    const itemCount = obj.items ? Object.keys(obj.items).length : 0;
+    const answered = obj.log && obj.log.answered || 0;
+    const scenarioCount = obj.scenarios ? Object.keys(obj.scenarios).length : 0;
+    return {
+      ok: true, errors: [],
+      summary: { seenCount, itemCount, answered, scenarioCount }
+    };
+  }
+
   LN.db = {
     get data() { return data; },
     save, review, isDue, record, markSeen,
-    reset() { data = blank(); save(); },
-    load(obj) { data = Object.assign(blank(), obj); save(); }
+    reset() { backupNow(); data = blank(); save(); },
+    load(obj) { data = Object.assign(blank(), obj); save(); },
+    backupNow, hasBackup, restoreBackup, validateImport
   };
   LN.idx = { cards, cardById, allItems, itemKey, unlocked, prereqsMet, mastery, trackMastery, dueItems, streak };
 })();

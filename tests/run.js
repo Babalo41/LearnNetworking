@@ -39,6 +39,7 @@ const LOAD_ORDER = [
   "content/t6-remote-tools.js",
   "content/scenarios.js",
   "js/core.js",
+  "js/features.js",
   "js/net.js",
   "js/shell.js",
   "js/drills.js"
@@ -189,6 +190,78 @@ section("free navigation toggle and bookmarks", () => {
   LN.db.data.bookmarks["t1-ip"] = true;
   LN.db.save();
   assert(LN.db.data.bookmarks["t1-ip"] === true, "a bookmark persists after save");
+});
+
+/* ============================================================
+   2c. FEATURES — search, difficulty, read-time, last-studied (js/features.js)
+   ============================================================ */
+section("js/features.js — search, difficulty, read-time helpers", () => {
+  const U = LN.util;
+  const t1ip = LN.idx.cardById["t1-ip"];
+  const t1same = LN.idx.cardById["t1-same-subnet"];
+
+  // search
+  assert(U.matchCard(t1ip, "") === true, "an empty query matches every card");
+  assert(U.matchCard(t1ip, "subnet mask") === true, "matchCard finds terms present in the card's why/body");
+  assert(U.matchCard(t1ip, "xyzzy-not-present-anywhere") === false, "matchCard rejects a query with no match");
+  assert(U.matchCard(t1ip, "IP two") === true, "matchCard is case-insensitive and requires ALL terms (AND)");
+  assert(U.matchCard(t1ip, "subnet zzzznotthere") === false, "matchCard fails if only SOME terms match (AND, not OR)");
+
+  // difficulty heuristic tracks prereq depth
+  eq(U.difficultyOf(t1ip), "starter", "a card with 0 prereqs is 'starter'");
+  const deepCard = LN.idx.cards.find(c => (c.prereqs || []).length >= 3);
+  if (deepCard) eq(U.difficultyOf(deepCard), "advanced", "a card with 3+ prereqs is 'advanced': " + deepCard.id);
+
+  // read time is a small positive integer
+  LN.idx.cards.forEach(c => {
+    const mins = U.estReadMinutes(c);
+    assert(Number.isInteger(mins) && mins >= 1, "estReadMinutes(" + c.id + ") is a positive integer, got " + mins);
+  });
+
+  // last studied
+  LN.db.reset();
+  const t1 = LN.tracks.find(t => t.id === "t1");
+  eq(U.trackLastStudied(t1), null, "an untouched track has no last-studied timestamp");
+  LN.db.markSeen("t1-ip");
+  assert(typeof U.trackLastStudied(t1) === "number", "reading a card in the track sets a last-studied timestamp");
+
+  eq(U.timeAgo(null), "never", "timeAgo(null) reads 'never'");
+  assert(U.timeAgo(Date.now()) === "just now", "timeAgo(now) reads 'just now'");
+});
+
+/* ============================================================
+   2d. BACKUP/RESTORE (undo reset) and import validation
+   ============================================================ */
+section("reset-undo backup and import validation", () => {
+  LN.db.reset();
+  LN.db.markSeen("t1-ip");
+  LN.db.review("t1-ip#0", 4);
+  const seenBefore = Object.keys(LN.db.data.seen).length;
+  assert(seenBefore > 0, "sanity: something is marked seen before reset");
+
+  LN.db.reset(); // reset() itself takes a backup before wiping
+  eq(Object.keys(LN.db.data.seen).length, 0, "reset() clears current progress");
+  assert(LN.db.hasBackup() === true, "a backup exists immediately after reset()");
+
+  const restored = LN.db.restoreBackup();
+  assert(restored === true, "restoreBackup() reports success");
+  eq(Object.keys(LN.db.data.seen).length, seenBefore, "restoreBackup() brings back the pre-reset seen count");
+  assert(LN.db.hasBackup() === false, "the backup is consumed (one-shot) after a successful restore");
+
+  // import validation: well-formed object
+  const good = LN.db.validateImport({ items: {}, seen: { "t1-ip": Date.now() }, log: { answered: 3, correct: 2, days: {} }, scenarios: {} });
+  eq(good.ok, true, "validateImport accepts a well-formed export shape");
+  eq(good.summary.seenCount, 1, "validateImport's summary counts seen cards correctly");
+  eq(good.summary.answered, 3, "validateImport's summary reports answered count");
+
+  // import validation: malformed
+  const bad1 = LN.db.validateImport(null);
+  eq(bad1.ok, false, "validateImport rejects null");
+  const bad2 = LN.db.validateImport({ items: "not-an-object" });
+  eq(bad2.ok, false, "validateImport rejects a wrong-typed 'items' field");
+  assert(bad2.errors.length > 0, "validateImport reports at least one error message for bad input");
+
+  LN.db.reset();
 });
 
 /* ============================================================
