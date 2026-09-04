@@ -1,0 +1,11 @@
+{
+  "name": "LearnNetworking",
+  "short_name": "LearnNet",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0e14",
+  "theme_color": "#0b0e14",
+  "orientation": "portrait-primary",
+  "icons": []
+}

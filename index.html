@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LearnNetworking — IGMP / Multicast / Subnetting Lab</title>
+<link rel="stylesheet" href="css/app.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0e14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LearnNet">
+</head>
+<body>
+<div id="shell">
+  <nav id="sidebar">
+    <div class="brand">Learn<span>Networking</span></div>
+    <button class="nav" data-mode="learn">Learn<small>guided concepts</small></button>
+    <button class="nav" data-mode="drill">Drill<small>spaced review</small></button>
+    <button class="nav" data-mode="lab">Lab<small>simulated network</small></button>
+    <button class="nav" data-mode="incident">Incident<small>capstone scenarios</small></button>
+    <button class="nav" data-mode="progress">Progress<small>what you know</small></button>
+    <div class="due-badge" id="due-badge"></div>
+    <div class="foot">
+      <button id="export-btn" class="mini">Export progress</button>
+      <button id="import-btn" class="mini">Import</button>
+      <input type="file" id="import-file" accept=".json" hidden>
+    </div>
+  </nav>
+  <main id="main"></main>
+</div>
+
+<!-- content packs (plain JS so it works from file://) -->
+<script src="content/t1-addressing.js"></script>
+<script src="content/t2-switching.js"></script>
+<script src="content/t3-multicast.js"></script>
+<script src="content/t4-linux.js"></script>
+<script src="content/t5-windows.js"></script>
+<script src="content/t6-remote-tools.js"></script>
+<script src="content/scenarios.js"></script>
+
+<!-- engine -->
+<script src="js/core.js"></script>
+<script src="js/net.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/drills.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
