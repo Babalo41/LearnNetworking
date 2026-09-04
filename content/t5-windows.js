@@ -512,6 +512,44 @@ C:\\Windows\\Logs\\WindowsUpdate\\      the raw ETW trace files themselves, not 
     {type:"mcq", q:"Why is wuauclt /detectnow considered unreliable on current Windows versions?",
      choices:["It was never a real command","It's a legacy mechanism that may silently no-op on modern builds — the Settings GUI's 'Check for updates' is the dependable trigger","It requires a reboot first","It only works on Windows Server"],
      correct:1, explain:"wuauclt's old detection-trigger behaviour has been superseded internally; it can appear to run without actually doing anything on newer builds. The Settings app's manual check button remains the trustworthy way to force a scan."}
+  ]},
+
+{ id:"t5-dns", title:"DNS and DHCP troubleshooting on Windows", prereqs:["t5-net"],
+  why:"The Windows-side equivalent of dig/resolvectl — and the DHCP half of 'why does this machine have the wrong IP' that ipconfig alone only hints at.",
+  body:`
+<pre>nslookup app01.site.local              classic query tool, still the default everywhere
+nslookup app01.site.local 10.42.7.1     query a SPECIFIC server directly, bypassing normal config
+Resolve-DnsName app01.site.local        PowerShell's modern equivalent, richer object output
+Resolve-DnsName app01.site.local -Server 10.42.7.1   same, against a specific server
+Resolve-DnsName -Name app01.site.local -Type PTR      reverse lookup: IP -> name (via the in-addr.arpa name)</pre>
+<p>The local DNS client cache sits in front of every query, same idea as Linux's systemd-resolved stub:</p>
+<pre>ipconfig /displaydns          show everything currently cached
+ipconfig /flushdns             clear it — the first move for "stale answer" symptoms
+Get-DnsClientCache             PowerShell equivalent of /displaydns, as objects</pre>
+<p>Which DNS servers a machine actually uses often comes from DHCP, not manual config — check both together:</p>
+<pre>ipconfig /all                              shows the DNS servers currently in effect, however they got set
+Get-DnsClientServerAddress                  PowerShell equivalent, per interface
+Get-NetIPConfiguration                       DNS servers alongside IP/gateway in one object</pre>
+<h3>DHCP</h3>
+<pre>ipconfig /release      give back the current lease
+ipconfig /renew         request a new one — the two together are the standard "get unstuck" sequence
+Get-DhcpServerv4Lease -ScopeId 10.42.7.0 -ComputerName dhcp01   (from the DHCP SERVER itself, if you're an admin there)
+                          which client has which IP, and until when</pre>
+<p>An IP that starts with <code>169.254.</code> is APIPA — Windows self-assigning an address because DHCP never answered. That prefix alone is the diagnosis: stop looking at the application, the machine never got a real lease.</p>`,
+  pitfalls:[
+    "An address in 169.254.0.0/16 (APIPA) means DHCP failed silently, not that anything about the network stack itself is broken — check DHCP server reachability and the switch port/VLAN, not the app.",
+    "ipconfig /all shows CURRENT effective settings, which may be a stale cached lease from hours ago — ipconfig /release then /renew forces a fresh negotiation instead of trusting what's currently cached.",
+    "nslookup's default behaviour queries whatever server is configured on the machine; forgetting to specify a server when you meant to test a SPECIFIC DNS server directly is a common source of 'works in nslookup, so DNS is fine' false confidence."
+  ],
+  items:[
+    {type:"mcq", q:"A Windows machine has IP 169.254.34.12. What does that address range specifically tell you?",
+     choices:["Nothing unusual, it's a normal private IP","APIPA — Windows self-assigned this because DHCP never answered","It's a DNS server address","It's a loopback address"],
+     correct:1, explain:"169.254.0.0/16 is Automatic Private IP Addressing — Windows' fallback when no DHCP server responds. Seeing this address is itself the diagnosis: the machine never got a real lease."},
+    {type:"input", q:"Command to clear the Windows DNS client cache? (ipconfig with a flag)",
+     accept:["ipconfig /flushdns"], explain:"ipconfig /flushdns clears cached DNS answers — the standard first move when a renamed or re-IP'd host still resolves to its old address on one specific machine."},
+    {type:"mcq", q:"What's the standard two-command sequence to force a fresh DHCP lease instead of trusting a possibly-stale cached one?",
+     choices:["ipconfig /all then ipconfig /flushdns","ipconfig /release then ipconfig /renew","ipconfig /displaydns then ipconfig /registerdns","nslookup then Resolve-DnsName"],
+     correct:1, explain:"release gives back the current lease, renew requests a fresh one — together they force a real DHCP negotiation instead of relying on whatever ipconfig /all currently shows as cached."}
   ]}
 
 ]});

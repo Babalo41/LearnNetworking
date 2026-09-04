@@ -4,7 +4,7 @@
    fails, which is what actually matters for "still usable with no signal".
    CACHE is versioned — bump it whenever the asset list itself changes, so an
    old service worker's cache gets cleaned up on the next activate. */
-const CACHE = "learnnetworking-v2";
+const CACHE = "learnnetworking-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -40,11 +40,17 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// network-first, cache as a fallback and as a running backup
+// network-first, cache as a fallback and as a running backup.
+// {cache:"no-store"} is deliberate: e.request alone can still be satisfied by
+// the browser's own HTTP cache (Last-Modified/heuristic caching from a plain
+// static file server), which defeats "network-first" in practice — a stale
+// app.css or content file can keep being served even though this handler
+// calls fetch() on every request. Forcing no-store guarantees this app never
+// gets stuck showing an old build to itself while online.
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: "no-store" })
       .then((res) => {
         if (res && res.ok) {
           const copy = res.clone();

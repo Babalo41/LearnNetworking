@@ -632,6 +632,41 @@ unzip archive.zip</pre>`,
     {type:"mcq", q:"Before extracting an unfamiliar .tar.gz into a shared directory, what should you check first?",
      choices:["Nothing, just extract it","List its contents first with tar -tzvf, to see the paths before they land on disk","Rename the archive","Check its file size only"],
      correct:1, explain:"tar -tzvf lists contents without extracting — worth doing first since tar writes files using whatever paths are stored inside the archive, which can include unexpected or deeply nested directories."}
+  ]},
+
+{ id:"t4-dns", title:"DNS troubleshooting: dig, resolvectl, and the resolver chain", prereqs:["t1-hosts","t4-netcfg"],
+  why:"Once a site has actual DNS (not just /etc/hosts), 'it resolves for me but not from that server' becomes a real, common ticket — and the fix depends on knowing exactly which resolver answered.",
+  body:`
+<pre>dig app01.site.local                  full query + answer + timing, the most complete tool
+dig +short app01.site.local            just the answer, nothing else — good for scripts
+dig app01.site.local @10.42.7.1        query a SPECIFIC server directly, bypassing local config
+dig -x 10.42.7.10                      reverse lookup: IP -> name
+host app01.site.local                   quick one-liner, less detail than dig
+nslookup app01.site.local               older, still everywhere, slightly different output format</pre>
+<p>On modern systemd-based distros, <code>systemd-resolved</code> usually sits in front of everything as a local caching stub resolver:</p>
+<pre>resolvectl status                 which DNS servers are configured, PER INTERFACE, and current state
+resolvectl query app01.site.local  query through the same path the OS actually uses
+resolvectl flush-caches            clear the local DNS cache — first move for "stale answer" symptoms
+systemd-resolve --status           older command name, same idea on some versions</pre>
+<p>The chain a normal lookup actually walks: <code>/etc/nsswitch.conf</code> (files then dns, covered in T1's /etc/hosts card) → <code>/etc/hosts</code> checked first → <b>systemd-resolved</b> (if active, itself checking <code>/etc/resolv.conf</code> or its own per-link config) → the actual upstream DNS server(s). A mismatch between what <code>resolvectl status</code> shows and what <code>/etc/resolv.conf</code> contains is common and confusing — resolved often manages resolv.conf itself and points it at <code>127.0.0.53</code>, its own stub, not the real upstream server directly.</p>
+<pre>$ cat /etc/resolv.conf
+nameserver 127.0.0.53          <- this is resolved's local stub, NOT the real DNS server
+options edns0 trust-ad</pre>
+<p><code>dig</code>'s output tells you exactly what happened even on failure — <code>NXDOMAIN</code> means the server positively answered "this name does not exist" (different from a timeout, which means no answer came back at all).</p>`,
+  pitfalls:[
+    "'It resolves on my laptop but not on the server' is almost always a DIFFERENT resolver in the chain — laptops and servers often have different DNS server configuration entirely. Always check resolvectl status (or /etc/resolv.conf) on the SPECIFIC machine with the problem.",
+    "A cached stale answer looks identical to a real answer until you compare it against dig @<authoritative-server> directly — bypass the cache to check the ground truth before assuming a DNS record itself is wrong.",
+    "NXDOMAIN ('this name does not exist') and a timeout ('no server answered at all') are different failures needing different fixes — NXDOMAIN means the query worked and the name is genuinely missing/misspelled; a timeout means the query itself never got a response, a reachability problem."
+  ],
+  items:[
+    {type:"mcq", q:"A name resolves correctly from your laptop but fails from a specific Linux server. What's the most likely explanation?",
+     choices:["The name doesn't exist","The server is using a different DNS resolver/configuration than your laptop — check resolvectl status or /etc/resolv.conf on the server specifically","DNS is fundamentally broken everywhere","The record was just deleted"],
+     correct:1, explain:"Different machines can have entirely different DNS server configuration. 'Works for me, fails on that server' points straight at comparing each machine's actual resolver chain, not assuming the record itself is bad."},
+    {type:"input", q:"Command to see which DNS servers systemd-resolved is actually using, per interface? (one word)",
+     accept:["resolvectl"], explain:"resolvectl status shows the real, currently active DNS configuration per link — often different from what a stale /etc/resolv.conf implies."},
+    {type:"mcq", q:"dig returns NXDOMAIN. What does that specifically mean?",
+     choices:["The query timed out with no response","The server positively answered that the name does not exist","A network/firewall problem prevented the query","The local cache is corrupted"],
+     correct:1, explain:"NXDOMAIN is an actual, received answer meaning 'this name does not exist' — a real, working query. A timeout (no NXDOMAIN, no answer at all) is a completely different, reachability-level failure."}
   ]}
 
 ]});
