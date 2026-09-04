@@ -6,17 +6,26 @@ remote-access tools (MobaXterm, WinSCP, FreeRDP) that go with them.
 
 **Open `index.html` in a browser. That is the whole install.** No server, no build step,
 no dependencies. Progress is stored in the browser's localStorage; use *Export progress*
-in the sidebar to keep a copy.
+in the sidebar to keep a copy. Optionally installable as a PWA (`manifest.json` + `sw.js`)
+for offline use — see the Changelog in-app for what that does and doesn't cover.
 
-## The five modes
+Don't want to follow the guided prerequisite order? Flip **Free navigation** on in
+Progress → Settings and every card becomes clickable immediately; cards opened out of
+order are marked "unlocked early" so you still know where you stand.
+
+Press **`?`** anywhere in the app for the full keyboard shortcut list (search, jump
+between modes, bookmark a card, etc).
+
+## The six modes
 
 | Mode | What it is |
 |---|---|
-| **Learn** | Concept cards with worked examples and pitfalls. Cards unlock as you read their prerequisites — the order is the dependency chain, not a menu. |
-| **Drill** | Spaced-repetition review. Mixes questions you are due to forget with freshly generated subnetting and multicast problems, so there is no answer key to memorise. |
-| **Lab** | A simulated switch, hosts, VLANs and IGMP with a fake shell. Break things and watch why. |
+| **Learn** | Concept cards with worked examples and pitfalls. Cards unlock as you read their prerequisites by default (see Free navigation, above). Search, filter by track, bookmark (★), or jump to a Random card. |
+| **Drill** | Spaced-repetition review. Mixes questions you are due to forget with freshly generated subnetting and multicast problems, so there is no answer key to memorise. Choose a session length and optionally restrict to bookmarked cards. |
+| **Lab** | A simulated switch, hosts, VLANs and IGMP with a fake shell. Break things and watch why. Command history persists across reloads; transcript is copyable. |
 | **Incident** | Decision-tree scenarios built from real situations. Wrong branches explain *why* they are wrong. |
-| **Progress** | Per-concept retention, accuracy, streak, and reset/export. |
+| **Progress** | Per-concept retention, accuracy, streak, retention-by-track chart, bookmarks, and reset/export (reset offers one-shot Undo). |
+| **Changelog** | What's new in this build. |
 
 ## Start here
 
@@ -46,20 +55,24 @@ Then: `topo vlans` (broadcast domains, mask mismatch) and `topo sina`
 ```
 index.html              loads everything with plain <script> tags
 css/app.css
+manifest.json, sw.js    PWA install + offline caching (network-first)
 content/                the material — data, not code
   t1-addressing.js      IP/mask/CIDR, same-subnet rule, ARP, /etc/hosts
   t2-switching.js       MAC table, VLANs/broadcast domains, flooding and CPU
   t3-multicast.js       modes, group addressing, IGMP, snooping, querier, scope, triage
-  t4-linux.js            shell navigation, systemd, logs, disk, crash dumps/OOM, paths, tmux
-  t5-windows.js          shortcuts, CMD/PowerShell, Event Viewer, crash dumps, perfmon, paths
+  t4-linux.js            shell navigation, systemd, logs, disk, crash dumps/OOM, DNS, paths, tmux
+  t5-windows.js          shortcuts, CMD/PowerShell, Event Viewer, crash dumps, DNS/DHCP, perfmon
   t6-remote-tools.js     MobaXterm, WinSCP, FreeRDP, and a cross-machine triage workflow
   scenarios.js          incident decision trees
 js/
-  core.js               localStorage + SM-2 spaced repetition + content index
+  core.js               localStorage + SM-2 spaced repetition + content index + settings
+  features.js            search, difficulty tags, read-time estimate, last-studied (pure, tested)
   net.js                the network model (hosts, switch, VLANs, IGMP, boundary)
-  shell.js              topologies and the fake terminal
-  drills.js             generated practice problems
-  ui.js  app.js         views and navigation
+  shell.js               topologies and the fake terminal
+  drills.js              generated practice problems
+  ui.js  app.js          views, navigation, theme, keyboard shortcuts, toasts
+tests/
+  run.js                 no-dependency Node test suite — see Testing, below
 ```
 
 ## Adding material
@@ -81,6 +94,21 @@ to the `<script>` list in `index.html`.
 
 New topologies go in `LN.topologies` in `js/shell.js`; new generated drill types
 go in `gens` in `js/drills.js`.
+
+## Testing
+
+```
+node tests/run.js
+```
+
+No install step, no dependencies — it loads `content/*.js` and `js/{core,features,net,shell,drills}.js`
+in Node's `vm` module exactly the way `index.html`'s `<script>` tags do, then asserts:
+content integrity (unique ids, resolvable prereqs, valid quiz items across every track), the
+unlock/free-nav/mastery index, SM-2 spaced-repetition scheduling, the search/difficulty/read-time
+helpers, backup+restore (Undo reset) and import validation, generated drills' own arithmetic, core
+IPv4 math, and — the important one — the Lab shell's full 8-command walkthrough from this README,
+checked line-by-line against the actual simulated output. `js/ui.js` and `js/app.js` need a real
+`document` and aren't covered here; test those by opening the app.
 
 ## Note on content
 
