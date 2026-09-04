@@ -220,6 +220,36 @@ td code{font-size:11.5px}
 .modal table{width:auto}
 .modal td{border:0;padding:4px 10px 4px 0}
 
+/* ---------- mobile ---------- */
+@media(max-width:760px){
+  #shell{flex-direction:column;height:100dvh}
+  #sidebar{width:100%;flex:0 0 auto;flex-direction:row;align-items:center;
+    overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+    border-right:0;border-bottom:1px solid var(--line);padding:8px 8px;gap:2px}
+  .brand{flex:0 0 auto;padding:4px 10px 4px 4px;font-size:13px}
+  button.nav{flex:0 0 auto;white-space:nowrap;padding:8px 10px}
+  button.nav small{display:none}
+  .due-badge{flex:0 0 auto;margin:0 4px}
+  .foot{margin-top:0!important;flex:0 0 auto;flex-direction:row!important;padding:0 0 0 4px}
+  .foot > div{flex-direction:row!important}
+  #main{padding:16px 14px 70px}
+  h1{font-size:19px}
+  .concept,.q{padding:16px;overflow-x:auto}
+  .cardlist{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+  .statgrid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+  .learn-toolbar{gap:6px}
+  .searchbox{flex:1 1 100%;min-width:0}
+  .trackfilter{flex:1 1 auto}
+  #term{height:48vh}
+  table{min-width:480px}
+  .trackbar-row{grid-template-columns:110px 1fr 34px;font-size:11px}
+  .modal{padding:18px 20px}
+}
+@media(max-width:420px){
+  .cardlist{grid-template-columns:1fr 1fr}
+  #main{padding:14px 10px 70px}
+}
+
 /* ---------- print ---------- */
 @media print{
   #sidebar,.crumbrow,.q,.learn-toolbar,.drill-controls,#toast-host,.foot{display:none!important}
