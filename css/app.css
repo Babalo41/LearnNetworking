@@ -4,6 +4,19 @@
   --warn:#ffa657; --bad:#ff7b72; --good:#3fb950;
   --mono:ui-monospace,"Cascadia Code",Consolas,"Liberation Mono",monospace;
 }
+:root[data-theme="light"]{
+  --bg:#f5f7fa; --panel:#ffffff; --panel2:#eef1f6; --line:#d9e0ea;
+  --fg:#1c2530; --dim:#5c6b80; --accent:#1668d6; --accent2:#1a8f4c;
+  --warn:#b8650a; --bad:#c8332a; --good:#1a8f4c;
+}
+/* The Lab terminal is a fixed-dark surface in BOTH themes — a real terminal
+   doesn't repaint itself for your OS theme, and reusing the theme-relative
+   vars in there would push text colors (e.g. light theme's darker green/red)
+   toward illegible on its always-near-black background. */
+:root{
+  --term-bg:#0a0d12; --term-fg:#c9d4e2; --term-dim:#8b97a8;
+  --term-cmd:#7ee787; --term-err:#ff7b72; --term-warn:#ffa657; --term-accent:#4da3ff;
+}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--fg);
@@ -12,7 +25,7 @@ body{margin:0;background:var(--bg);color:var(--fg);
 
 /* ---------- sidebar ---------- */
 #sidebar{width:210px;flex:0 0 210px;background:var(--panel);border-right:1px solid var(--line);
-  display:flex;flex-direction:column;padding:14px 10px;gap:4px}
+  display:flex;flex-direction:column;padding:14px 10px;gap:4px;overflow-y:auto}
 .brand{font:600 15px/1.2 var(--mono);letter-spacing:-.3px;padding:4px 8px 14px;color:var(--fg)}
 .brand span{color:var(--accent)}
 button.nav{display:block;width:100%;text-align:left;background:none;border:0;color:var(--dim);
@@ -59,10 +72,11 @@ li{margin:4px 0}
 .cardtile.pending{border-color:var(--warn)}
 .pendingtag{font-size:9.5px;font-weight:600;color:var(--warn);border:1px solid var(--warn);
   border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle;text-transform:uppercase;letter-spacing:.3px}
-.star{position:absolute;top:10px;right:10px;color:#4c5665;cursor:pointer;font-size:14px;line-height:1;user-select:none}
+.star{color:#4c5665;cursor:pointer;font-size:14px;line-height:1;user-select:none}
 .star:hover{color:var(--warn)}
 .star.on{color:var(--warn)}
 .cardtile{position:relative}
+.cardtile .star{position:absolute;top:10px;right:10px}
 
 .settings-panel{margin:16px 0 22px}
 .switchrow{display:flex;align-items:center;gap:12px;cursor:pointer}
@@ -106,15 +120,15 @@ li{margin:4px 0}
 /* ---------- lab ---------- */
 .labgrid{display:grid;grid-template-columns:1fr 320px;gap:14px;align-items:start}
 @media(max-width:1100px){.labgrid{grid-template-columns:1fr}}
-#term{background:#0a0d12;border:1px solid var(--line);border-radius:9px;padding:12px 14px;
+#term{background:var(--term-bg);color:var(--term-fg);border:1px solid var(--line);border-radius:9px;padding:12px 14px;
   font-family:var(--mono);font-size:12.5px;line-height:1.5;height:60vh;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
-#term .cmd{color:var(--accent2)}
-#term .err{color:var(--bad)}
-#term .note{color:var(--dim)}
-#term .hit{color:var(--warn)}
+#term .cmd{color:var(--term-cmd)}
+#term .err{color:var(--term-err)}
+#term .note{color:var(--term-dim)}
+#term .hit{color:var(--term-warn)}
 .prompt-row{display:flex;gap:8px;margin-top:10px;align-items:center}
-.prompt-row .ps1{font-family:var(--mono);font-size:12.5px;color:var(--accent2);white-space:nowrap}
-.prompt-row input{flex:1;background:#0a0d12;border:1px solid var(--line);color:var(--fg);
+.prompt-row .ps1{font-family:var(--mono);font-size:12.5px;color:var(--term-cmd);white-space:nowrap}
+.prompt-row input{flex:1;background:var(--term-bg);border:1px solid var(--line);color:var(--term-fg);
   font-family:var(--mono);font-size:12.5px;padding:9px 11px;border-radius:7px}
 .prompt-row input:focus{outline:0;border-color:var(--accent)}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:14px}
@@ -136,6 +150,81 @@ td code{font-size:11.5px}
 .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
 .stat .n{font:600 22px var(--mono);color:var(--accent)}
 .stat .l{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
-.crumb{color:var(--dim);font-size:12px;margin-bottom:10px;cursor:pointer}
+.crumb{color:var(--dim);font-size:12px;cursor:pointer}
 .crumb:hover{color:var(--accent)}
+.crumbrow{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px}
+.crumbsep{color:var(--line)}
+.crumbtrack{color:var(--dim)}
 .empty{color:var(--dim);padding:40px 0;text-align:center}
+
+/* ---------- learn toolbar ---------- */
+.learn-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 18px}
+.searchbox{background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:8px 12px;
+  border-radius:7px;font-size:13px;flex:1 1 200px;min-width:160px}
+.searchbox:focus{outline:0;border-color:var(--accent)}
+.trackfilter{background:var(--panel);border:1px solid var(--line);color:var(--fg);padding:8px 10px;
+  border-radius:7px;font-size:13px}
+.bmfilter{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--dim);cursor:pointer;white-space:nowrap}
+.bmfilter input{cursor:pointer}
+
+/* ---------- difficulty / read time / bookmark badges ---------- */
+.meta{display:flex;gap:8px;align-items:center;margin-top:8px}
+.difftag{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+  padding:2px 6px;border-radius:4px;border:1px solid var(--line);color:var(--dim)}
+.difftag.starter{color:var(--good);border-color:var(--good)}
+.difftag.core{color:var(--accent);border-color:var(--accent)}
+.difftag.advanced{color:var(--warn);border-color:var(--warn)}
+.readtime{font-size:11px;color:var(--dim)}
+.concept-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.concept-badges{display:flex;align-items:center;gap:10px}
+.star{cursor:pointer;color:#4c5665;font-size:14px;user-select:none}
+.star:hover{color:var(--warn)}
+.star.on{color:var(--warn)}
+.star.bigstar{font-size:22px}
+
+/* ---------- drill controls ---------- */
+.drill-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}
+.drill-controls select{background:var(--panel);border:1px solid var(--line);color:var(--fg);
+  padding:8px 10px;border-radius:7px;font-size:13px}
+.duebreak{margin-top:4px}
+.duebreak-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12.5px;border-bottom:1px solid #1e2530}
+.duebreak-row b{color:var(--accent)}
+
+/* ---------- progress: track bar chart, bookmarks, legend ---------- */
+.trackbar-row{display:grid;grid-template-columns:170px 1fr 40px;gap:10px;align-items:center;padding:5px 0;font-size:12px}
+.trackbar-label{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trackbar-track{height:7px;background:var(--panel2);border-radius:4px;overflow:hidden}
+.trackbar-track i{display:block;height:100%;background:var(--good)}
+.trackbar-pct{text-align:right;color:var(--dim);font-family:var(--mono)}
+.bmlist{display:flex;flex-direction:column;gap:2px}
+.bmlink{padding:6px 4px;font-size:13px;cursor:pointer;border-radius:5px}
+.bmlink:hover{background:var(--panel2);color:var(--accent)}
+.legend{font-size:11.5px}
+
+/* ---------- lab header ---------- */
+.lab-hdrow{display:flex;align-items:center;gap:12px}
+.lab-hdrow h1{margin:0}
+
+/* ---------- toasts ---------- */
+#toast-host{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:200}
+.toast{background:var(--panel2);border:1px solid var(--accent);color:var(--fg);padding:10px 16px;
+  border-radius:8px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.3);opacity:1;transition:opacity .35s}
+.toast.out{opacity:0}
+
+/* ---------- shortcuts modal ---------- */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;
+  justify-content:center;z-index:300}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px 26px;
+  min-width:280px;max-width:90vw}
+.modal h3{margin:0 0 12px}
+.modal table{width:auto}
+.modal td{border:0;padding:4px 10px 4px 0}
+
+/* ---------- print ---------- */
+@media print{
+  #sidebar,.crumbrow,.q,.learn-toolbar,.drill-controls,#toast-host,.foot{display:none!important}
+  #main{overflow:visible;height:auto;padding:0}
+  body{background:#fff;color:#000}
+  .concept{border:0;box-shadow:none}
+  a[href]:after{content:""}
+}

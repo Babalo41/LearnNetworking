@@ -11,6 +11,7 @@
     items: {},        // itemKey -> srs record
     scenarios: {},    // scenarioId -> {best, runs, lastRun}
     seen: {},         // cardId -> timestamp of last read
+    lastCard: null,    // cardId of the most recently opened concept, for "continue"
     bookmarks: {},     // cardId -> true, user-starred cards
     settings: {         // user preferences, persisted like everything else
       freeNav: false,     // when true, every card is clickable regardless of prereqs
@@ -126,7 +127,7 @@
       });
   }
 
-  function markSeen(cardId) { data.seen[cardId] = Date.now(); save(); }
+  function markSeen(cardId) { data.seen[cardId] = Date.now(); data.lastCard = cardId; save(); }
 
   function streak() {
     let n = 0;

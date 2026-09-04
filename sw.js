@@ -1,5 +1,10 @@
-/* sw.js — cache-first offline support. Bump CACHE when app files change. */
-const CACHE = "learnnetworking-v1";
+/* sw.js — network-first offline support.
+   Always prefers a fresh network response (so a content/UI update is never
+   stuck behind a stale cache); falls back to the cache only when the network
+   fails, which is what actually matters for "still usable with no signal".
+   CACHE is versioned — bump it whenever the asset list itself changes, so an
+   old service worker's cache gets cleaned up on the next activate. */
+const CACHE = "learnnetworking-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -13,6 +18,7 @@ const ASSETS = [
   "./content/t6-remote-tools.js",
   "./content/scenarios.js",
   "./js/core.js",
+  "./js/features.js",
   "./js/net.js",
   "./js/shell.js",
   "./js/drills.js",
@@ -34,21 +40,18 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// cache-first, falling back to network, then updating the cache with any fresh response
+// network-first, cache as a fallback and as a running backup
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const network = fetch(e.request)
-        .then((res) => {
-          if (res && res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE).then((cache) => cache.put(e.request, copy));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(e.request)
+      .then((res) => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(e.request, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });

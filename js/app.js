@@ -1,4 +1,4 @@
-/* app.js — navigation, badge, import/export */
+/* app.js — navigation, badge, theme, keyboard shortcuts, toasts, import/export */
 (function () {
   "use strict";
 
@@ -9,6 +9,43 @@
   }
   LN.refreshBadge = refreshBadge;
 
+  /* ---------------- toast ---------------- */
+  function toast(msg) {
+    let host = document.getElementById("toast-host");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "toast-host";
+      document.body.appendChild(host);
+    }
+    const t = document.createElement("div");
+    t.className = "toast";
+    t.textContent = msg;
+    host.appendChild(t);
+    setTimeout(() => t.classList.add("out"), 2200);
+    setTimeout(() => t.remove(), 2600);
+  }
+  LN.toast = toast;
+
+  /* ---------------- theme ---------------- */
+  function applyTheme() {
+    const theme = (LN.db.data.settings && LN.db.data.settings.theme) || "dark";
+    document.documentElement.setAttribute("data-theme", theme);
+    const btn = document.getElementById("theme-btn");
+    if (btn) btn.textContent = theme === "dark" ? "☀" : "☾";
+  }
+  function toggleTheme() {
+    const cur = (LN.db.data.settings && LN.db.data.settings.theme) || "dark";
+    LN.db.data.settings.theme = cur === "dark" ? "light" : "dark";
+    LN.db.save();
+    applyTheme();
+    toast("Switched to " + LN.db.data.settings.theme + " theme");
+  }
+  document.getElementById("theme-btn").onclick = toggleTheme;
+  applyTheme();
+
+  /* ---------------- navigation ---------------- */
+  const MODES = ["learn", "drill", "lab", "incident", "progress", "changelog"];
+
   function go(mode) {
     document.querySelectorAll("button.nav").forEach(b =>
       b.classList.toggle("active", b.dataset.mode === mode));
@@ -16,10 +53,67 @@
     try { localStorage.setItem("learnnetworking.mode", mode); } catch (e) {}
     refreshBadge();
   }
+  LN.go = go;
 
   document.querySelectorAll("button.nav").forEach(b =>
     b.onclick = () => go(b.dataset.mode));
 
+  /* ---------------- keyboard shortcuts ---------------- */
+  const SHORTCUTS = [
+    ["1–6", "Jump to Learn / Drill / Lab / Incident / Progress / Changelog"],
+    ["/", "Focus the search box (Learn view)"],
+    ["b", "Bookmark the card you're currently reading"],
+    ["Esc", "Back out of a card, close this help, blur a field"],
+    ["?", "Show / hide this shortcuts list"]
+  ];
+
+  function helpModal() {
+    let el = document.getElementById("shortcuts-modal");
+    if (el) { el.remove(); return; }
+    el = document.createElement("div");
+    el.id = "shortcuts-modal";
+    el.className = "modal-backdrop";
+    el.innerHTML = `<div class="modal">
+      <h3>Keyboard shortcuts</h3>
+      <table>${SHORTCUTS.map(([k, d]) => `<tr><td><code>${k}</code></td><td>${d}</td></tr>`).join("")}</table>
+      <button class="btn ghost" style="margin-top:14px">Close</button>
+    </div>`;
+    el.querySelector("button").onclick = () => el.remove();
+    el.onclick = e => { if (e.target === el) el.remove(); };
+    document.body.appendChild(el);
+  }
+  document.getElementById("help-btn").onclick = helpModal;
+
+  document.addEventListener("keydown", e => {
+    const tag = document.activeElement && document.activeElement.tagName;
+    const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
+    if (e.key === "Escape") {
+      const modal = document.getElementById("shortcuts-modal");
+      if (modal) { modal.remove(); return; }
+      if (typing) { document.activeElement.blur(); return; }
+      return;
+    }
+    if (typing) return; // never hijack keys while the user is typing/answering
+
+    if (e.key === "?") { helpModal(); return; }
+    if (e.key === "/") {
+      const search = document.getElementById("learn-search");
+      if (search) { e.preventDefault(); search.focus(); }
+      else { go("learn"); setTimeout(() => { const s = document.getElementById("learn-search"); if (s) s.focus(); }, 0); }
+      return;
+    }
+    if (e.key >= "1" && e.key <= String(MODES.length)) {
+      go(MODES[+e.key - 1]);
+      return;
+    }
+    if (e.key === "b") {
+      const star = document.querySelector(".concept-badges .bigstar");
+      if (star) star.click();
+    }
+  });
+
+  /* ---------------- export / import ---------------- */
   document.getElementById("export-btn").onclick = () => {
     const blob = new Blob([JSON.stringify(LN.db.data, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
@@ -27,6 +121,7 @@
     a.download = "learnnetworking-progress.json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast("Progress exported");
   };
 
   const fileInput = document.getElementById("import-file");
@@ -36,8 +131,25 @@
     if (!f) return;
     const r = new FileReader();
     r.onload = () => {
-      try { LN.db.load(JSON.parse(r.result)); go("progress"); }
-      catch (e) { alert("Could not read that file."); }
+      let obj;
+      try { obj = JSON.parse(r.result); }
+      catch (e) { alert("Could not read that file — not valid JSON."); fileInput.value = ""; return; }
+      const check = LN.db.validateImport(obj);
+      if (!check.ok) {
+        alert("This file doesn't look like a LearnNetworking export:\n" + check.errors.join("\n"));
+        fileInput.value = "";
+        return;
+      }
+      const s = check.summary;
+      const msg = `Import this file?\n\n` +
+        `${s.seenCount} card(s) marked read\n${s.itemCount} spaced-repetition record(s)\n` +
+        `${s.answered} question(s) answered\n${s.scenarioCount} incident scenario record(s)\n\n` +
+        `This REPLACES your current progress on this browser. Export first if you want to keep it.`;
+      if (!confirm(msg)) { fileInput.value = ""; return; }
+      LN.db.load(obj);
+      go("progress");
+      toast("Progress imported");
+      fileInput.value = "";
     };
     r.readAsText(f);
   };

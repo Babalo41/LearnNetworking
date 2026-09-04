@@ -11,49 +11,118 @@
   const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
   /* ============================ LEARN ============================ */
+  let learnState = { q: "", track: "all", bookmarkedOnly: false };
+
+  function diffTagHtml(c) {
+    const d = LN.util.difficultyOf(c);
+    return `<span class="difftag ${d}">${d}</span>`;
+  }
+
   function learn() {
     const m = M(); m.innerHTML = "";
     const w = h("div", "wrap");
     w.appendChild(h("h1", null, "Learn"));
     w.appendChild(h("p", "sub", "Read a concept, then practise it. Cards unlock as you read their prerequisites — the order is not arbitrary, each one is built on the last."));
 
-    LN.tracks.forEach(t => {
-      const sec = h("div", "track");
-      const pct = Math.round(LN.idx.trackMastery(t.id) * 100);
-      const hd = h("div", "track-h");
-      hd.appendChild(h("h2", null, t.title));
-      hd.appendChild(h("span", "pct", pct + "% retained"));
-      sec.appendChild(hd);
-      sec.appendChild(h("p", "sub", t.blurb));
+    /* ---- toolbar: search, track filter, bookmarked-only, random, continue ---- */
+    const toolbar = h("div", "learn-toolbar");
+    const search = h("input", "searchbox");
+    search.id = "learn-search";
+    search.placeholder = "Search cards… ( / )";
+    search.value = learnState.q;
+    search.autocomplete = "off";
+    search.oninput = () => { learnState.q = search.value; renderList(); };
+    toolbar.appendChild(search);
 
-      const list = h("div", "cardlist");
-      t.cards.forEach(c => {
-        const open = LN.idx.unlocked(c);
-        const metPrereqs = LN.idx.prereqsMet(c);
-        const earlyAccess = open && !metPrereqs; // free-nav let us in ahead of the guided order
-        const starred = !!LN.db.data.bookmarks[c.id];
-        const tile = h("div", "cardtile" + (open ? "" : " locked") + (earlyAccess ? " pending" : ""));
-        const star = h("span", "star" + (starred ? " on" : ""), starred ? "★" : "☆");
-        star.title = starred ? "Remove bookmark" : "Bookmark this card";
-        star.onclick = e => {
-          e.stopPropagation();
-          if (LN.db.data.bookmarks[c.id]) delete LN.db.data.bookmarks[c.id];
-          else LN.db.data.bookmarks[c.id] = true;
-          LN.db.save();
-          learn();
-        };
-        tile.innerHTML = `<div class="t">${esc(c.title)}${earlyAccess ? ' <span class="pendingtag">unlocked early</span>' : ""}</div>
-          <div class="w">${open ? c.why.replace(/<[^>]+>/g, "").slice(0, 110) + "…"
-            : "Locked — read: " + c.prereqs.map(p => LN.idx.cardById[p] ? LN.idx.cardById[p].title : p).join(", ")}</div>
-          <div class="bar"><i style="width:${Math.round(LN.idx.mastery(c) * 100)}%"></i></div>`;
-        tile.appendChild(star);
-        if (open) tile.onclick = () => concept(c.id);
-        list.appendChild(tile);
-      });
-      sec.appendChild(list);
-      w.appendChild(sec);
+    const trackSel = h("select", "trackfilter");
+    trackSel.appendChild(h("option", null, "All tracks"));
+    trackSel.children[0].value = "all";
+    LN.tracks.forEach(t => {
+      const o = h("option", null, esc(t.title));
+      o.value = t.id;
+      trackSel.appendChild(o);
     });
+    trackSel.value = learnState.track;
+    trackSel.onchange = () => { learnState.track = trackSel.value; renderList(); };
+    toolbar.appendChild(trackSel);
+
+    const bmLabel = h("label", "bmfilter");
+    const bmCb = h("input"); bmCb.type = "checkbox"; bmCb.checked = learnState.bookmarkedOnly;
+    bmCb.onchange = () => { learnState.bookmarkedOnly = bmCb.checked; renderList(); };
+    bmLabel.appendChild(bmCb);
+    bmLabel.appendChild(document.createTextNode(" ★ bookmarked only"));
+    toolbar.appendChild(bmLabel);
+
+    const randomBtn = h("button", "btn ghost", "🎲 Random card");
+    randomBtn.onclick = () => {
+      const open = LN.idx.cards.filter(c => LN.idx.unlocked(c));
+      if (!open.length) return;
+      concept(open[Math.floor(Math.random() * open.length)].id);
+    };
+    toolbar.appendChild(randomBtn);
+
+    if (LN.db.data.lastCard && LN.idx.cardById[LN.db.data.lastCard]) {
+      const cont = h("button", "btn ghost", "▶ Continue: " + LN.idx.cardById[LN.db.data.lastCard].title);
+      cont.onclick = () => concept(LN.db.data.lastCard);
+      toolbar.appendChild(cont);
+    }
+    w.appendChild(toolbar);
+
+    const listHost = h("div");
+    w.appendChild(listHost);
     m.appendChild(w);
+    renderList();
+
+    function renderList() {
+      listHost.innerHTML = "";
+      let anyVisible = false;
+      LN.tracks.forEach(t => {
+        if (learnState.track !== "all" && learnState.track !== t.id) return;
+        const visibleCards = t.cards.filter(c =>
+          LN.util.matchCard(c, learnState.q) &&
+          (!learnState.bookmarkedOnly || LN.db.data.bookmarks[c.id]));
+        if (!visibleCards.length) return;
+        anyVisible = true;
+
+        const sec = h("div", "track");
+        const pct = Math.round(LN.idx.trackMastery(t.id) * 100);
+        const hd = h("div", "track-h");
+        hd.appendChild(h("h2", null, t.title));
+        const lastStudied = LN.util.trackLastStudied(t);
+        hd.appendChild(h("span", "pct", pct + "% retained · last studied " + LN.util.timeAgo(lastStudied)));
+        sec.appendChild(hd);
+        sec.appendChild(h("p", "sub", t.blurb));
+
+        const list = h("div", "cardlist");
+        visibleCards.forEach(c => {
+          const open = LN.idx.unlocked(c);
+          const metPrereqs = LN.idx.prereqsMet(c);
+          const earlyAccess = open && !metPrereqs; // free-nav let us in ahead of the guided order
+          const starred = !!LN.db.data.bookmarks[c.id];
+          const tile = h("div", "cardtile" + (open ? "" : " locked") + (earlyAccess ? " pending" : ""));
+          const star = h("span", "star" + (starred ? " on" : ""), starred ? "★" : "☆");
+          star.title = starred ? "Remove bookmark" : "Bookmark this card";
+          star.onclick = e => {
+            e.stopPropagation();
+            if (LN.db.data.bookmarks[c.id]) delete LN.db.data.bookmarks[c.id];
+            else LN.db.data.bookmarks[c.id] = true;
+            LN.db.save();
+            renderList();
+          };
+          tile.innerHTML = `<div class="t">${esc(c.title)}${earlyAccess ? ' <span class="pendingtag">unlocked early</span>' : ""}</div>
+            <div class="w">${open ? c.why.replace(/<[^>]+>/g, "").slice(0, 110) + "…"
+              : "Locked — read: " + c.prereqs.map(p => LN.idx.cardById[p] ? LN.idx.cardById[p].title : p).join(", ")}</div>
+            <div class="meta">${diffTagHtml(c)}<span class="readtime">${LN.util.estReadMinutes(c)} min read</span></div>
+            <div class="bar"><i style="width:${Math.round(LN.idx.mastery(c) * 100)}%"></i></div>`;
+          tile.appendChild(star);
+          if (open) tile.onclick = () => concept(c.id);
+          list.appendChild(tile);
+        });
+        sec.appendChild(list);
+        listHost.appendChild(sec);
+      });
+      if (!anyVisible) listHost.appendChild(h("div", "empty", "No cards match. Try a different search, track, or turn off the bookmarked-only filter."));
+    }
   }
 
   function concept(id) {
@@ -61,12 +130,33 @@
     LN.db.markSeen(id);
     const m = M(); m.innerHTML = "";
     const w = h("div", "wrap");
-    const crumb = h("div", "crumb", "← back to Learn");
+    const crumbRow = h("div", "crumbrow");
+    const crumb = h("span", "crumb", "← back to Learn");
     crumb.onclick = learn;
-    w.appendChild(crumb);
+    crumbRow.appendChild(crumb);
+    const track = LN.tracks.find(t => t.id === c.track);
+    const posInTrack = track.cards.findIndex(x => x.id === c.id);
+    crumbRow.appendChild(h("span", "crumbsep", "·"));
+    crumbRow.appendChild(h("span", "crumbtrack", `${esc(track.title)} — card ${posInTrack + 1} of ${track.cards.length}`));
+    w.appendChild(crumbRow);
 
     const box = h("div", "concept");
-    box.appendChild(h("h1", null, c.title));
+    const hdRow = h("div", "concept-hd");
+    hdRow.appendChild(h("h1", null, c.title));
+    const badges = h("div", "concept-badges");
+    badges.innerHTML = diffTagHtml(c) + `<span class="readtime">${LN.util.estReadMinutes(c)} min read</span>`;
+    const starred = !!LN.db.data.bookmarks[c.id];
+    const star = h("span", "star bigstar" + (starred ? " on" : ""), starred ? "★" : "☆");
+    star.title = starred ? "Remove bookmark" : "Bookmark this card";
+    star.onclick = () => {
+      if (LN.db.data.bookmarks[c.id]) delete LN.db.data.bookmarks[c.id];
+      else LN.db.data.bookmarks[c.id] = true;
+      LN.db.save();
+      concept(id);
+    };
+    badges.appendChild(star);
+    hdRow.appendChild(badges);
+    box.appendChild(hdRow);
     box.appendChild(h("div", "why", "<b>Why this matters to you:</b> " + c.why));
     box.appendChild(h("div", null, c.body));
     (c.pitfalls || []).forEach(p => box.appendChild(h("div", "pitfall", "<b>Watch out:</b> " + p)));
@@ -77,6 +167,13 @@
     go.onclick = () => practice(c);
     bar.appendChild(go);
 
+    const prevC = track.cards[posInTrack - 1];
+    if (prevC) {
+      const bp = h("button", "btn ghost", "← Prev: " + prevC.title);
+      bp.style.marginLeft = "8px";
+      bp.onclick = () => concept(prevC.id);
+      bar.appendChild(bp);
+    }
     const nxt = nextCard(c);
     if (nxt) {
       const b2 = h("button", "btn ghost", "Next: " + nxt.title);
@@ -102,15 +199,77 @@
   }
 
   /* ============================ DRILL ============================ */
+  let drillState = { length: "normal", bookmarkedOnly: false };
+
   function drill() {
     const due = LN.idx.dueItems();
+    const m = M(); m.innerHTML = "";
+    const w = h("div", "wrap");
+    w.appendChild(h("h1", null, "Drill"));
+    w.appendChild(h("p", "sub", "Spaced review, mixed with freshly generated problems so there is no answer key to memorise."));
+
+    // due breakdown by track — helps you see where the backlog actually is
+    const byTrack = {};
+    due.forEach(d => { byTrack[d.card.track] = (byTrack[d.card.track] || 0) + 1; });
+    if (due.length) {
+      const bd = h("div", "panel");
+      bd.appendChild(h("h4", null, "Due right now, by track"));
+      const rows = h("div", "duebreak");
+      LN.tracks.forEach(t => {
+        const n = byTrack[t.id] || 0;
+        if (!n) return;
+        rows.appendChild(h("div", "duebreak-row", `<span>${esc(t.title)}</span><b>${n}</b>`));
+      });
+      bd.appendChild(rows);
+      w.appendChild(bd);
+    } else {
+      w.appendChild(h("div", "empty", "Nothing due right now — a drill session will use freshly generated subnetting/multicast problems instead."));
+    }
+
+    const controls = h("div", "drill-controls");
+    const lenSel = h("select");
+    [["quick", "Quick (5 questions)"], ["normal", "Normal (6–12)"], ["long", "Long (20 questions)"]]
+      .forEach(([v, l]) => { const o = h("option", null, l); o.value = v; lenSel.appendChild(o); });
+    lenSel.value = drillState.length;
+    lenSel.onchange = () => drillState.length = lenSel.value;
+    controls.appendChild(lenSel);
+
+    const bmLabel = h("label", "bmfilter");
+    const bmCb = h("input"); bmCb.type = "checkbox"; bmCb.checked = drillState.bookmarkedOnly;
+    bmCb.onchange = () => drillState.bookmarkedOnly = bmCb.checked;
+    bmLabel.appendChild(bmCb);
+    bmLabel.appendChild(document.createTextNode(" ★ bookmarked cards only"));
+    controls.appendChild(bmLabel);
+    w.appendChild(controls);
+
+    const start = h("button", "btn", "Start drilling");
+    start.style.marginTop = "14px";
+    start.onclick = startDrill;
+    w.appendChild(start);
+    m.appendChild(w);
+  }
+
+  function startDrill() {
+    let due = LN.idx.dueItems();
+    if (drillState.bookmarkedOnly) due = due.filter(d => LN.db.data.bookmarks[d.card.id]);
+
+    const targetLen = drillState.length === "quick" ? 5 : drillState.length === "long" ? 20 : null;
     const queue = [];
-    due.slice(0, 8).forEach(d => queue.push({ item: d.item, key: d.key, card: d.card }));
-    // top up with generated drills so a session is always worth doing
-    const want = Math.max(6, Math.min(12, due.length + 4));
-    while (queue.length < want) {
-      const d = LN.drills.random();
-      queue.push({ item: { type: "input", q: d.q, accept: d.accept, explain: d.explain }, key: d.key, gen: true });
+    due.slice(0, targetLen || 8).forEach(d => queue.push({ item: d.item, key: d.key, card: d.card }));
+
+    if (!drillState.bookmarkedOnly) {
+      // top up with generated drills so a session is always worth doing
+      const want = targetLen || Math.max(6, Math.min(12, due.length + 4));
+      while (queue.length < want) {
+        const d = LN.drills.random();
+        queue.push({ item: { type: "input", q: d.q, accept: d.accept, explain: d.explain }, key: d.key, gen: true });
+      }
+    } else if (targetLen) {
+      while (queue.length < Math.min(targetLen, due.length)) break; // bookmarked-only: don't pad past what's actually due
+    }
+    if (!queue.length) {
+      alert("No bookmarked cards are due for review yet. Star some cards in Learn, or turn off the bookmarked-only filter.");
+      return;
     }
     queue.sort(() => Math.random() - 0.5);
     session(queue, "Drill", drill);
@@ -225,7 +384,24 @@
     if (!sh) sh = new LN.Shell("flat");
     const m = M(); m.innerHTML = "";
     const w = h("div");
-    w.appendChild(h("h1", null, "Lab"));
+    const hdRow = h("div", "lab-hdrow");
+    hdRow.appendChild(h("h1", null, "Lab"));
+    const copyBtn = h("button", "btn ghost", "Copy transcript");
+    copyBtn.onclick = () => {
+      const text = term.innerText || term.textContent || "";
+      const done = () => { copyBtn.textContent = "Copied!"; setTimeout(() => copyBtn.textContent = "Copy transcript", 1200); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(done);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); } catch (e) {}
+        document.body.removeChild(ta);
+        done();
+      }
+    };
+    hdRow.appendChild(copyBtn);
+    w.appendChild(hdRow);
     w.appendChild(h("p", "sub", "A simulated switch, hosts and IGMP. Nothing here touches your machine. Type <code>help</code>, or run the walkthrough on the right."));
 
     const grid = h("div", "labgrid");
@@ -262,8 +438,10 @@
     w.appendChild(grid);
     m.appendChild(w);
 
-    const hist = [];
-    let hi = 0;
+    const HIST_KEY = "learnnetworking.lab.history";
+    let hist = [];
+    try { hist = JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch (e) { hist = []; }
+    let hi = hist.length;
     const write = lines => {
       lines.forEach(l => {
         const d = h("div", l.cls || "");
@@ -281,7 +459,10 @@
       if (e.key === "Enter") {
         const v = inp.value;
         inp.value = "";
-        if (v.trim()) { hist.push(v); hi = hist.length; }
+        if (v.trim()) {
+          hist.push(v); hi = hist.length;
+          try { localStorage.setItem(HIST_KEY, JSON.stringify(hist.slice(-50))); } catch (e) {}
+        }
         const out = sh.run(v);
         if (out === "CLEAR" || (out[1] && out[1] === "CLEAR")) { term.innerHTML = ""; refresh(); return; }
         write(out.filter(x => x && x.s !== undefined));
@@ -329,8 +510,10 @@
     const list = h("div", "cardlist");
     LN.scenarios.forEach(s => {
       const st = LN.db.data.scenarios[s.id];
+      const solved = st && st.best >= 1;
       const tile = h("div", "cardtile");
-      tile.innerHTML = `<div class="t">${esc(s.title)}</div><div class="w">${esc(s.brief.slice(0, 130))}…</div>
+      tile.innerHTML = `<div class="t">${solved ? "✓ " : ""}${esc(s.title)}</div><div class="w">${esc(s.brief.slice(0, 130))}…</div>
+        <div class="meta"><span class="readtime">${st ? st.runs + " attempt" + (st.runs === 1 ? "" : "s") : "not attempted"}</span></div>
         <div class="bar"><i style="width:${st ? Math.round(st.best * 100) : 0}%"></i></div>`;
       tile.onclick = () => runScenario(s);
       list.appendChild(tile);
@@ -410,17 +593,49 @@
     w.appendChild(h("p", "sub", "Retention is measured by how many times you have recalled something correctly at increasing intervals — not by how much you have read."));
 
     const acc = d.log.answered ? Math.round(d.log.correct / d.log.answered * 100) : 0;
+    const streak = LN.idx.streak();
+    const milestone = streak >= 30 ? "🔥 30+" : streak >= 7 ? "🔥 7+" : streak >= 3 ? "🔥 3+" : "";
     const g = h("div", "statgrid");
     [["Cards read", Object.keys(d.seen).length + " / " + LN.idx.cards.length],
      ["Questions answered", d.log.answered],
      ["Accuracy", acc + "%"],
      ["Due now", LN.idx.dueItems().length],
-     ["Day streak", LN.idx.streak()]].forEach(([l, n]) => {
+     ["Day streak", streak + (milestone ? " " + milestone : "")]].forEach(([l, n]) => {
       const s = h("div", "stat");
       s.innerHTML = `<div class="n">${n}</div><div class="l">${l}</div>`;
       g.appendChild(s);
     });
     w.appendChild(g);
+
+    // track mastery mini bar chart — one glance across every track
+    const chart = h("div", "panel");
+    chart.appendChild(h("h4", null, "Retention by track"));
+    LN.tracks.forEach(t => {
+      const pct = Math.round(LN.idx.trackMastery(t.id) * 100);
+      const row = h("div", "trackbar-row");
+      row.innerHTML = `<span class="trackbar-label">${esc(t.title)}</span>
+        <span class="trackbar-track"><i style="width:${pct}%"></i></span>
+        <span class="trackbar-pct">${pct}%</span>`;
+      chart.appendChild(row);
+    });
+    w.appendChild(chart);
+
+    // bookmarked cards, quick access
+    const bmIds = Object.keys(d.bookmarks);
+    if (bmIds.length) {
+      const bmBox = h("div", "panel");
+      bmBox.appendChild(h("h4", null, `★ Bookmarked (${bmIds.length})`));
+      const bmList = h("div", "bmlist");
+      bmIds.forEach(id => {
+        const c = LN.idx.cardById[id];
+        if (!c) return;
+        const link = h("div", "bmlink", esc(c.title));
+        link.onclick = () => concept(id);
+        bmList.appendChild(link);
+      });
+      bmBox.appendChild(bmList);
+      w.appendChild(bmBox);
+    }
 
     const settingsBox = h("div", "panel settings-panel");
     settingsBox.appendChild(h("h4", null, "Settings"));
@@ -452,16 +667,82 @@
       w.appendChild(tbl);
     });
 
+    w.appendChild(h("p", "sub legend", "Status legend: <b>unread</b> — not opened yet · <b>shaky</b> (&lt;40%) — reviewed but not sticking · <b>learning</b> (40–79%) — improving · <b>solid</b> (≥80%) — well retained."));
+
+    const dangerRow = h("div");
+    dangerRow.style.marginTop = "24px";
     const rb = h("button", "btn ghost", "Reset all progress");
-    rb.style.marginTop = "24px";
     rb.onclick = () => {
-      if (confirm("Erase all progress on this browser? Export first if you want to keep it.")) {
+      if (confirm("Erase all progress on this browser? Export first if you want to keep it. (You'll be able to Undo once, right after.)")) {
         LN.db.reset(); progress(); LN.refreshBadge();
       }
     };
-    w.appendChild(rb);
+    dangerRow.appendChild(rb);
+    if (LN.db.hasBackup()) {
+      const ub = h("button", "btn ghost", "Undo reset");
+      ub.style.marginLeft = "8px";
+      ub.onclick = () => {
+        if (LN.db.restoreBackup()) { progress(); LN.refreshBadge(); }
+      };
+      dangerRow.appendChild(ub);
+    }
+    w.appendChild(dangerRow);
     m.appendChild(w);
   }
 
-  LN.views = { learn, drill, lab, incident, progress, concept };
+  /* ============================ CHANGELOG ============================ */
+  const CHANGELOG = [
+    { d: "Free navigation", items: [
+      "A Settings toggle in Progress lets you unlock every card immediately, instead of following the guided prerequisite order. Cards opened this way are marked \"unlocked early\"."
+    ]},
+    { d: "Find things faster", items: [
+      "Search box in Learn — matches title, why-it-matters, body, and pitfalls across every track.",
+      "Filter Learn by track, or to bookmarked cards only.",
+      "🎲 Random card button, and a \"Continue: <card>\" shortcut back to whatever you read last.",
+      "Bookmark (★) any card from its tile or from inside the card itself; see them all in Progress."
+    ]},
+    { d: "Know what you're getting into", items: [
+      "Every card shows a difficulty tag (starter / core / advanced, based on prerequisite depth) and an estimated read time.",
+      "Card view shows a breadcrumb: which track, and which position in it (e.g. \"card 3 of 8\"), with Prev/Next buttons."
+    ]},
+    { d: "Drill, your way", items: [
+      "See the due backlog broken down by track before you start.",
+      "Choose a session length: quick (5), normal, or long (20).",
+      "Restrict a session to bookmarked cards only."
+    ]},
+    { d: "Progress, visualised", items: [
+      "A retention bar chart across every track, at a glance.",
+      "Streak milestones (3/7/30 days) get a small 🔥 badge.",
+      "Reset all progress now offers one-shot Undo.",
+      "A status legend explains what unread/shaky/learning/solid actually mean."
+    ]},
+    { d: "Lab and Incident", items: [
+      "Copy the full Lab terminal transcript to your clipboard.",
+      "Lab command history now survives a page reload.",
+      "Solved Incident scenarios get a ✓ and show attempt counts."
+    ]},
+    { d: "Around the app", items: [
+      "Light theme, alongside the original dark theme (footer toggle).",
+      "Keyboard shortcuts: <code>/</code> search, <code>1-5</code> switch modes, <code>b</code> bookmark, <code>Esc</code> back, <code>?</code> for the full list.",
+      "Import now validates the file and shows a summary (cards seen, questions answered) before overwriting anything.",
+      "Content: more Learn cards deepening Linux, Windows, and remote-tooling coverage.",
+      "A real, no-dependency test suite (tests/run.js) now covers the spaced-repetition engine, content integrity, the Lab's full walkthrough, and every feature above."
+    ]}
+  ];
+
+  function changelog() {
+    const m = M(); m.innerHTML = "";
+    const w = h("div", "wrap");
+    w.appendChild(h("h1", null, "Changelog"));
+    w.appendChild(h("p", "sub", "What's new in this build."));
+    CHANGELOG.forEach(sec => {
+      w.appendChild(h("h2", null, sec.d));
+      const ul = h("ul");
+      sec.items.forEach(it => ul.appendChild(h("li", null, it)));
+      w.appendChild(ul);
+    });
+    m.appendChild(w);
+  }
+
+  LN.views = { learn, drill, lab, incident, progress, concept, changelog };
 })();
