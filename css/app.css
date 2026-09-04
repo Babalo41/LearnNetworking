@@ -223,14 +223,13 @@ td code{font-size:11.5px}
 /* ---------- mobile ---------- */
 @media(max-width:760px){
   #shell{flex-direction:column;height:100dvh}
-  #sidebar{width:100%;flex:0 0 auto;flex-direction:row;align-items:center;
-    overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
-    border-right:0;border-bottom:1px solid var(--line);padding:8px 8px;gap:2px}
-  .brand{flex:0 0 auto;padding:4px 10px 4px 4px;font-size:13px}
-  button.nav{flex:0 0 auto;white-space:nowrap;padding:8px 10px}
+  #sidebar{width:100%;flex:0 0 auto;flex-direction:row;flex-wrap:wrap;align-items:center;
+    overflow:visible;border-right:0;border-bottom:1px solid var(--line);padding:8px 8px;gap:2px}
+  .brand{flex:0 0 100%;padding:2px 4px 6px}
+  button.nav{display:inline-block;width:auto;flex:0 0 auto;white-space:nowrap;padding:7px 9px;font-size:13px}
   button.nav small{display:none}
-  .due-badge{flex:0 0 auto;margin:0 4px}
-  .foot{margin-top:0!important;flex:0 0 auto;flex-direction:row!important;padding:0 0 0 4px}
+  .due-badge{flex:0 0 auto;margin:0 4px;order:1}
+  .foot{margin-top:0!important;flex:0 0 100%!important;flex-direction:row!important;padding:6px 0 0}
   .foot > div{flex-direction:row!important}
   #main{padding:16px 14px 70px}
   h1{font-size:19px}
