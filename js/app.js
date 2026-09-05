@@ -26,6 +26,39 @@
   }
   LN.toast = toast;
 
+  /* ---------------- update banner ---------------- */
+  function showUpdateBanner() {
+    if (document.getElementById("update-banner")) return;
+    const el = document.createElement("div");
+    el.id = "update-banner";
+    el.className = "update-banner";
+    el.innerHTML = `<span>A new version of LearnNetworking is available.</span>
+      <button class="btn" id="update-refresh">Refresh</button>
+      <button class="mini" id="update-dismiss">Later</button>`;
+    el.querySelector("#update-refresh").onclick = () => location.reload();
+    el.querySelector("#update-dismiss").onclick = () => el.remove();
+    document.body.appendChild(el);
+  }
+  LN.showUpdateBanner = showUpdateBanner;
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").then((reg) => {
+        // A worker already waiting (installed while this tab was closed/backgrounded)
+        // is itself an update worth surfacing.
+        if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner();
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener("statechange", () => {
+            // A controller already existing means this is an update, not the first install.
+            if (nw.state === "activated" && navigator.serviceWorker.controller) showUpdateBanner();
+          });
+        });
+      }).catch(() => {});
+    });
+  }
+
   /* ---------------- theme ---------------- */
   function applyTheme() {
     const theme = (LN.db.data.settings && LN.db.data.settings.theme) || "dark";
