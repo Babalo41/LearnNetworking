@@ -76,20 +76,51 @@
   document.getElementById("theme-btn").onclick = toggleTheme;
   applyTheme();
 
-  /* ---------------- navigation ---------------- */
+  /* ---------------- navigation / deep links ----------------
+     The URL hash is the single source of truth for what's on screen:
+     #/<mode> or #/<mode>/<id> (a learn card id, or an incident scenario id).
+     That makes any card or scenario a bookmarkable, shareable link, and
+     gives the browser's back/forward buttons real meaning. */
   const MODES = ["learn", "drill", "lab", "incident", "progress", "changelog"];
 
-  function go(mode) {
+  function parseHash() {
+    const raw = location.hash.replace(/^#\/?/, "");
+    const [mode, arg] = raw.split("/").filter(Boolean);
+    return { mode, arg };
+  }
+
+  function renderRoute() {
+    let { mode, arg } = parseHash();
+    if (!MODES.includes(mode)) mode = "learn";
     document.querySelectorAll("button.nav").forEach(b =>
       b.classList.toggle("active", b.dataset.mode === mode));
-    (LN.views[mode] || LN.views.learn)();
     try { localStorage.setItem("learnnetworking.mode", mode); } catch (e) {}
+
+    if (mode === "learn" && arg) {
+      const card = LN.idx.cardById[arg];
+      if (card && LN.idx.unlocked(card)) { LN.views.concept(arg); refreshBadge(); return; }
+      // unknown or still-locked card id (stale link, typo) — fall through to the list
+    }
+    if (mode === "incident" && arg) {
+      const sc = LN.scenarios.find(s => s.id === arg);
+      if (sc) { LN.views.runScenario(sc); refreshBadge(); return; }
+    }
+    (LN.views[mode] || LN.views.learn)();
     refreshBadge();
   }
-  LN.go = go;
+
+  function navigate(path) {
+    const target = "#/" + path;
+    if (location.hash === target) renderRoute(); // re-open the same route (e.g. clicking the active tab)
+    else location.hash = target; // sets a new history entry and fires hashchange -> renderRoute
+  }
+  LN.navigate = navigate;
+  const go = navigate; // alias — kept so the rest of this file reads naturally
+
+  window.addEventListener("hashchange", renderRoute);
 
   document.querySelectorAll("button.nav").forEach(b =>
-    b.onclick = () => go(b.dataset.mode));
+    b.onclick = () => navigate(b.dataset.mode));
 
   /* ---------------- keyboard shortcuts ---------------- */
   const SHORTCUTS = [
@@ -187,7 +218,11 @@
     r.readAsText(f);
   };
 
-  let start = "learn";
-  try { start = localStorage.getItem("learnnetworking.mode") || "learn"; } catch (e) {}
-  go(start);
+  if (location.hash && location.hash !== "#") {
+    renderRoute(); // a deep link was opened directly — honor it
+  } else {
+    let start = "learn";
+    try { start = localStorage.getItem("learnnetworking.mode") || "learn"; } catch (e) {}
+    navigate(start);
+  }
 })();

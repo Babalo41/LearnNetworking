@@ -4,7 +4,7 @@
    fails, which is what actually matters for "still usable with no signal".
    CACHE is versioned — bump it whenever the asset list itself changes, so an
    old service worker's cache gets cleaned up on the next activate. */
-const CACHE = "learnnetworking-v4";
+const CACHE = "learnnetworking-v5";
 const ASSETS = [
   "./",
   "./index.html",

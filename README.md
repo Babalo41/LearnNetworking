@@ -16,6 +16,11 @@ order are marked "unlocked early" so you still know where you stand.
 Press **`?`** anywhere in the app for the full keyboard shortcut list (search, jump
 between modes, bookmark a card, etc).
 
+Every mode, concept card, and incident scenario has its own URL (e.g.
+`#/learn/t3-igmp-snooping`, `#/incident/sc-querier`) — copy the address bar to
+bookmark or share a specific card, and the browser's back/forward buttons move
+between what you've actually looked at.
+
 ## The six modes
 
 | Mode | What it is |

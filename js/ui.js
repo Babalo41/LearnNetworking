@@ -57,13 +57,13 @@
     randomBtn.onclick = () => {
       const open = LN.idx.cards.filter(c => LN.idx.unlocked(c));
       if (!open.length) return;
-      concept(open[Math.floor(Math.random() * open.length)].id);
+      LN.navigate("learn/" + open[Math.floor(Math.random() * open.length)].id);
     };
     toolbar.appendChild(randomBtn);
 
     if (LN.db.data.lastCard && LN.idx.cardById[LN.db.data.lastCard]) {
       const cont = h("button", "btn ghost", "▶ Continue: " + LN.idx.cardById[LN.db.data.lastCard].title);
-      cont.onclick = () => concept(LN.db.data.lastCard);
+      cont.onclick = () => LN.navigate("learn/" + LN.db.data.lastCard);
       toolbar.appendChild(cont);
     }
     w.appendChild(toolbar);
@@ -115,7 +115,7 @@
             <div class="meta">${diffTagHtml(c)}<span class="readtime">${LN.util.estReadMinutes(c)} min read</span></div>
             <div class="bar"><i style="width:${Math.round(LN.idx.mastery(c) * 100)}%"></i></div>`;
           tile.appendChild(star);
-          if (open) tile.onclick = () => concept(c.id);
+          if (open) tile.onclick = () => LN.navigate("learn/" + c.id);
           list.appendChild(tile);
         });
         sec.appendChild(list);
@@ -132,7 +132,7 @@
     const w = h("div", "wrap");
     const crumbRow = h("div", "crumbrow");
     const crumb = h("span", "crumb", "← back to Learn");
-    crumb.onclick = learn;
+    crumb.onclick = () => LN.navigate("learn");
     crumbRow.appendChild(crumb);
     const track = LN.tracks.find(t => t.id === c.track);
     const posInTrack = track.cards.findIndex(x => x.id === c.id);
@@ -171,14 +171,14 @@
     if (prevC) {
       const bp = h("button", "btn ghost", "← Prev: " + prevC.title);
       bp.style.marginLeft = "8px";
-      bp.onclick = () => concept(prevC.id);
+      bp.onclick = () => LN.navigate("learn/" + prevC.id);
       bar.appendChild(bp);
     }
     const nxt = nextCard(c);
     if (nxt) {
       const b2 = h("button", "btn ghost", "Next: " + nxt.title);
       b2.style.marginLeft = "8px";
-      b2.onclick = () => concept(nxt.id);
+      b2.onclick = () => LN.navigate("learn/" + nxt.id);
       bar.appendChild(b2);
     }
     w.appendChild(bar);
@@ -515,7 +515,7 @@
       tile.innerHTML = `<div class="t">${solved ? "✓ " : ""}${esc(s.title)}</div><div class="w">${esc(s.brief.slice(0, 130))}…</div>
         <div class="meta"><span class="readtime">${st ? st.runs + " attempt" + (st.runs === 1 ? "" : "s") : "not attempted"}</span></div>
         <div class="bar"><i style="width:${st ? Math.round(st.best * 100) : 0}%"></i></div>`;
-      tile.onclick = () => runScenario(s);
+      tile.onclick = () => LN.navigate("incident/" + s.id);
       list.appendChild(tile);
     });
     w.appendChild(list);
@@ -527,7 +527,7 @@
     const m = M(); m.innerHTML = "";
     const w = h("div", "wrap");
     const crumb = h("div", "crumb", "← back to Incident");
-    crumb.onclick = incident;
+    crumb.onclick = () => LN.navigate("incident");
     w.appendChild(crumb);
     w.appendChild(h("h1", null, sc.title));
     w.appendChild(h("div", "why", "<b>Situation:</b> " + sc.brief));
@@ -546,7 +546,7 @@
         box.appendChild(h("h2", null, `Resolved — ${firstTry} of ${sc.steps.length} decisions right first time`));
         box.appendChild(h("div", null, sc.debrief));
         const b = h("button", "btn", "Back to scenarios");
-        b.onclick = incident;
+        b.onclick = () => LN.navigate("incident");
         box.appendChild(b);
         slot.appendChild(box);
         return;
@@ -630,7 +630,7 @@
         const c = LN.idx.cardById[id];
         if (!c) return;
         const link = h("div", "bmlink", esc(c.title));
-        link.onclick = () => concept(id);
+        link.onclick = () => LN.navigate("learn/" + id);
         bmList.appendChild(link);
       });
       bmBox.appendChild(bmList);
@@ -744,5 +744,5 @@
     m.appendChild(w);
   }
 
-  LN.views = { learn, drill, lab, incident, progress, concept, changelog };
+  LN.views = { learn, drill, lab, incident, progress, concept, changelog, runScenario };
 })();
